@@ -41,6 +41,11 @@ function ball.rebound(shift_ball_x, shift_ball_y)
   end
 end
 
+function ball.reposition()
+  ball.position_x = 200
+  ball.position_y = 500
+end
+
 local platform = {}
 platform.position_x = 500
 platform.position_y = 500
@@ -75,8 +80,6 @@ end
 local bricks = {}
 bricks.brick_width = 50
 bricks.brick_height = 30
-bricks.rows = 8
-bricks.columns = 11
 bricks.top_left_x = 70
 bricks.top_left_y = 50
 bricks.horizontal_margin = 10
@@ -84,8 +87,12 @@ bricks.vertical_margin = 15
 bricks.current_level_bricks = {}
 
 function bricks.update(dt)
-  for _, brick in pairs(bricks.current_level_bricks) do
-    bricks.update_brick(brick)
+  if #bricks.current_level_bricks == 0 then
+    bricks.no_more_bricks = true
+  else
+    for _, brick in pairs(bricks.current_level_bricks) do
+      bricks.update_brick(brick)
+    end
   end
 end
 
@@ -117,17 +124,20 @@ function bricks.new_brick(position_x, position_y, width, height)
   })
 end
 
-function bricks.construct_level()
-  for row = 1, bricks.rows do
-    for col = 1, bricks.columns do
-      local x = bricks.top_left_x +
-        (col - 1) *
-        (bricks.brick_width + bricks.horizontal_margin)
-      local y = bricks.top_left_y +
-        (row - 1) *
-        (bricks.brick_height + bricks.vertical_margin)
-      local brick = bricks.new_brick(x, y)
-      table.insert(bricks.current_level_bricks, brick)
+function bricks.construct_level(layout)
+  bricks.no_more_bricks = false
+  for row_index, row in pairs(layout) do
+    for col_index, bricktype in pairs(row) do
+      if bricktype ~= 0 then
+        local x = bricks.top_left_x +
+          (col_index - 1) *
+          (bricks.brick_width + bricks.horizontal_margin)
+        local y = bricks.top_left_y +
+          (row_index - 1) *
+          (bricks.brick_height + bricks.vertical_margin)
+        local brick = bricks.new_brick(x, y)
+        table.insert(bricks.current_level_bricks, brick)
+      end
     end
   end
 end
@@ -204,6 +214,42 @@ function walls.construct_walls()
   walls.current_level_walls["right"] = right
   walls.current_level_walls["top"] = top
   walls.current_level_walls["bottom"] = bottom
+end
+
+local levels = {}
+levels.current_level = 1
+levels.sequence = {}
+levels.sequence[1] = {
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1 },
+  { 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1 },
+  { 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0 },
+  { 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0 },
+  { 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0 },
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+}
+
+levels.sequence[2] = {
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+  { 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1 },
+  { 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0 },
+  { 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0 },
+  { 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0 },
+  { 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1 },
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+}
+function levels.goto_next_level()
+  if bricks.no_more_bricks then
+    if levels.current_level < #levels.sequence then
+      levels.current_level = levels.current_level + 1
+      bricks.construct_level(levels.sequence[levels.current_level])
+      ball.reposition()
+    else
+      levels.gamefinished = true
+    end
+  end
 end
 
 local collisions = {}
@@ -333,7 +379,7 @@ function collisions.platform_walls_collision(platform, walls)
 end
 
 function love.load()
-  bricks.construct_level()
+  bricks.construct_level(levels.sequence[levels.current_level])
   walls.construct_walls()
 end
 
@@ -343,6 +389,7 @@ function love.update(dt)
   bricks.update(dt)
   walls.update(dt)
   collisions.resolve_collisions()
+  levels.goto_next_level()
 end
 
 function love.draw()
@@ -350,6 +397,11 @@ function love.draw()
   platform.draw()
   bricks.draw()
   walls.draw()
+  if levels.gamefinished then
+    love.graphics.printf("Whasdf\n" ..
+      "asdf", 300, 250, 200, "center"
+    )
+  end
 end
 
 function love.quit()
